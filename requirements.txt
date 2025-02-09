@@ -5,3 +5,4 @@ transformers
 pillow
 numpy
 psycopg2
+python-multipart
