@@ -70,3 +70,8 @@ async def search_image(file: UploadFile = File(...)):
             matched_images.append({"image": img_filename, "similarity": similarity})
 
     return {"matches": matched_images}
+
+
+@app.get("/healthz")
+def health_check():
+    return {"status": "OK"}
