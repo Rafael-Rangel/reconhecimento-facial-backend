@@ -6,24 +6,45 @@ import psycopg2
 import numpy as np
 from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
+import time
 
 # Configuração do PostgreSQL (Aiven)
-SERVICE_URI = os.getenv("DATABASE_URL")  # Pega a variável do ambiente para segurança
+SERVICE_URI = os.getenv("DATABASE_URL")  # Pegando a variável de ambiente do Render
 
 def connect_db():
     """Tenta conectar ao banco de dados. Se falhar, retorna None."""
     try:
-        conn = psycopg2.connect(SERVICE_URI)
+        conn = psycopg2.connect(SERVICE_URI, connect_timeout=10)  # Timeout para evitar travamento
         return conn
     except Exception as e:
         print(f"❌ Erro ao conectar ao banco de dados: {e}")
-        return None  # Evita que a API feche caso o banco esteja offline
+        return None
 
-# Carregar modelo CLIP
-model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+# Carregar modelo CLIP com tempo de espera para garantir inicialização
+print("⏳ Carregando modelo CLIP...")
+start_time = time.time()
+try:
+    model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
+    print(f"✅ Modelo CLIP carregado em {time.time() - start_time:.2f} segundos!")
+except Exception as e:
+    print(f"❌ Erro ao carregar o modelo CLIP: {e}")
 
 app = FastAPI()
+
+@app.get("/")
+def root():
+    """Endpoint raiz para evitar erro 404"""
+    return {"message": "API de Reconhecimento Facial está funcionando! 🚀"}
+
+@app.get("/healthz")
+def health_check():
+    """Verifica se o banco de dados está online"""
+    conn = connect_db()
+    if conn:
+        conn.close()
+        return {"status": "OK", "db_connection": "Success"}
+    return {"status": "FAIL", "db_connection": "Error"}
 
 def generate_embedding(image):
     """Gera embedding da imagem"""
@@ -43,7 +64,6 @@ async def upload_image(file: UploadFile = File(...)):
 
     conn = connect_db()
     if not conn:
-        print("❌ Banco de dados offline!")
         return {"error": "Banco de dados offline"}
 
     cur = conn.cursor()
@@ -83,7 +103,6 @@ async def search_image(file: UploadFile = File(...)):
 
     conn = connect_db()
     if not conn:
-        print("❌ Banco de dados offline!")
         return {"error": "Banco de dados offline"}
 
     cur = conn.cursor()
@@ -109,12 +128,4 @@ async def search_image(file: UploadFile = File(...)):
     if not matched_images:
         print("❌ Nenhuma correspondência encontrada!")
 
-    return {"matches": matched_images}
-
-@app.get("/healthz")
-def health_check():
-    """Verifica se o banco de dados está online"""
-    conn = connect_db()
-    if conn:
-        return {"status": "OK", "db_connection": "Success"}
-    return {"status": "FAIL", "db_connection": "Error"}
+    return {"matches": matched_images"}
