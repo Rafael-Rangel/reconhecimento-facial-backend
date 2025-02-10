@@ -8,8 +8,7 @@ from PIL import Image
 from transformers import CLIPProcessor, CLIPModel
 
 # Configuração do PostgreSQL (Aiven)
-import os
-SERVICE_URI = os.getenv("DATABASE_URL")
+SERVICE_URI = os.getenv("DATABASE_URL")  # Pega a variável do ambiente para segurança
 
 def connect_db():
     """Tenta conectar ao banco de dados. Se falhar, retorna None."""
@@ -55,6 +54,24 @@ async def upload_image(file: UploadFile = File(...)):
     conn.close()
     print(f"✅ Imagem {file.filename} cadastrada com sucesso!")
     return {"message": "Imagem cadastrada com sucesso!"}
+
+@app.get("/get_all_images")
+def get_all_images():
+    """Retorna todas as imagens armazenadas no banco"""
+    print("📸 Buscando todas as imagens no banco...")
+    
+    conn = connect_db()
+    if not conn:
+        return {"error": "Banco de dados offline"}
+
+    cur = conn.cursor()
+    cur.execute("SELECT picture FROM pictures;")
+    images = [row[0] for row in cur.fetchall()]
+    cur.close()
+    conn.close()
+
+    print(f"✅ {len(images)} imagens encontradas.")
+    return {"images": images}
 
 @app.post("/search/")
 async def search_image(file: UploadFile = File(...)):
