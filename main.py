@@ -128,4 +128,4 @@ async def search_image(file: UploadFile = File(...)):
     if not matched_images:
         print("❌ Nenhuma correspondência encontrada!")
 
-    return {"matches": matched_images"}
+    return {"matches": matched_images}
